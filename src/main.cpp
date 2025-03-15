@@ -41,6 +41,8 @@ uint8_t const desc_hid_report[] = {
 
 // USB HID object
 Adafruit_USBD_HID usb_hid;
+Adafruit_seesaw ss;
+
 
 // Report payload defined in src/class/hid/hid.h
 // - For Gamepad Button Bit Mask see  hid_gamepad_button_bm_t
@@ -66,17 +68,45 @@ void setup() {
     delay(10);
     TinyUSBDevice.attach();
   }
+  if (!ss.begin(DEFAULT_I2C_ADDR)) {
+    Serial.println(F("seesaw not found!"));
+    while(1) delay(10);
+  }
 
-  Serial.println("Adafruit TinyUSB HID Gamepad example");
+  uint16_t pid;
+  uint8_t year, mon, day;
+  
+  ss.getProdDatecode(&pid, &year, &mon, &day);
+  Serial.print("seesaw found PID: ");
+  Serial.print(pid);
+  Serial.print(" datecode: ");
+  Serial.print(2000+year); Serial.print("/"); 
+  Serial.print(mon); Serial.print("/"); 
+  Serial.println(day);
+
+  if (pid != 5296) {
+    Serial.println(F("Wrong seesaw PID"));
+    while (1) delay(10);
+  }
+
+  Serial.println(F("seesaw started OK!"));
+  ss.pinMode(SWITCH1, INPUT_PULLUP);
+  ss.pinMode(SWITCH2, INPUT_PULLUP);
+  ss.pinMode(SWITCH3, INPUT_PULLUP);
+  ss.pinMode(SWITCH4, INPUT_PULLUP);
+  ss.analogWrite(PWM1, 127);
+  ss.analogWrite(PWM2, 127);
+  ss.analogWrite(PWM3, 127);
+  ss.analogWrite(PWM4, 127);
 }
 
 void loop() {
-
+  
   delay(10); // delay in loop to slow serial output
   
   // Reverse x/y values to match joystick orientation
-  int x = 1023 - ss.analogRead(14);
-  int y = 1023 - ss.analogRead(15);
+  bool b1 = ss.digitalRead(SWITCH1);
+  bool b2 = ss.digitalRead(SWITCH2);
 
 #if defined(IRQ_PIN)
   if(!digitalRead(IRQ_PIN)) {
