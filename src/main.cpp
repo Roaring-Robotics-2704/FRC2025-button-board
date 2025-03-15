@@ -9,20 +9,38 @@
  any redistribution
 *********************************************************************/
 
-#include "Adafruit_TinyUSB.h"
-#include "Adafruit_Seesaw.h"
-#include <seesaw_neopixel.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h>
+#include "Adafruit_seesaw.h"
 
-#define  DEFAULT_I2C_ADDR 0x3A
 
+
+// ----- LED Arcade 1x4 STEMMA QT board pins-----
+// pin definitions on each LED Arcade 1x4
 #define  SWITCH1  18  // PA01
 #define  SWITCH2  19 // PA02
 #define  SWITCH3  20 // PA03
-#define  SWITCH4  2 // PA06
+#define  SWITCH4  2 // PA04
 #define  PWM1  12  // PC00
 #define  PWM2  13 // PC01
 #define  PWM3  0 // PA04
 #define  PWM4  1 // PA05
+
+#define  I2C_BASE_ADDR 0x3A //  boards are in order, 0x3A, 0x3B, 0x3C, 0x3D
+#define  NUM_BOARDS 4
+
+Adafruit_seesaw ledArcades[ NUM_BOARDS ];
+
+//----- board variables
+int boardNum = 0;  //used to read each board
+int switchNum = 0; //used to read each switch
+int boardSwitchNum = 0; //unique button ID accross all boards/buttons
+int led_low = 10;  //min pwm brightness
+int led_med = 60; 
+int led_high = 220; // max brightness
+
+bool lastButtonState[16] ;
+bool currentButtonState[16] ;
 
 /* This sketch demonstrates USB HID gamepad use.
  * This sketch is only valid on boards which have native USB support
@@ -38,11 +56,8 @@
 uint8_t const desc_hid_report[] = {
     TUD_HID_REPORT_DESC_GAMEPAD()
 };
-
 // USB HID object
 Adafruit_USBD_HID usb_hid;
-Adafruit_seesaw ss;
-
 
 // Report payload defined in src/class/hid/hid.h
 // - For Gamepad Button Bit Mask see  hid_gamepad_button_bm_t
@@ -68,45 +83,44 @@ void setup() {
     delay(10);
     TinyUSBDevice.attach();
   }
-  if (!ss.begin(DEFAULT_I2C_ADDR)) {
-    Serial.println(F("seesaw not found!"));
-    while(1) delay(10);
-  }
-
-  uint16_t pid;
-  uint8_t year, mon, day;
   
-  ss.getProdDatecode(&pid, &year, &mon, &day);
-  Serial.print("seesaw found PID: ");
-  Serial.print(pid);
-  Serial.print(" datecode: ");
-  Serial.print(2000+year); Serial.print("/"); 
-  Serial.print(mon); Serial.print("/"); 
-  Serial.println(day);
-
-  if (pid != 5296) {
-    Serial.println(F("Wrong seesaw PID"));
-    while (1) delay(10);
-  }
-
-  Serial.println(F("seesaw started OK!"));
-  ss.pinMode(SWITCH1, INPUT_PULLUP);
-  ss.pinMode(SWITCH2, INPUT_PULLUP);
-  ss.pinMode(SWITCH3, INPUT_PULLUP);
-  ss.pinMode(SWITCH4, INPUT_PULLUP);
-  ss.analogWrite(PWM1, 127);
-  ss.analogWrite(PWM2, 127);
-  ss.analogWrite(PWM3, 127);
-  ss.analogWrite(PWM4, 127);
+      //----- LED Arcade 1x4 setup-----
+    //
+    for ( int i = 0; i < NUM_BOARDS; i++ ) {
+      if ( !ledArcades[i].begin( I2C_BASE_ADDR + i ) ) {
+      Serial.println(F("LED Arcade not found!"));
+      while (1) delay(10);
+      } 
+    }
+    Serial.println(F("LED Arcade boards started"));
+  
+    for ( int i = 0; i < NUM_BOARDS; i++ ) {
+      ledArcades[i].pinMode(SWITCH1, INPUT_PULLUP);
+      ledArcades[i].pinMode(SWITCH2, INPUT_PULLUP);
+      ledArcades[i].pinMode(SWITCH3, INPUT_PULLUP);
+      ledArcades[i].pinMode(SWITCH4, INPUT_PULLUP);
+      ledArcades[i].analogWrite(PWM1, led_low);
+      ledArcades[i].analogWrite(PWM2, led_low);
+      ledArcades[i].analogWrite(PWM3, led_low);
+      ledArcades[i].analogWrite(PWM4, led_low);  
+    }
+    // brighten default root note
+    //ledArcades[0].analogWrite(PWM1, led_high);
+    //----- end LED Arcade 1x4 setup-----
 }
 
 void loop() {
+
+  for ( int i = 0; i < NUM_BOARDS; i++ ) {
+
+      ledArcades[i].analogWrite(PWM1, led_high);
+      ledArcades[i].analogWrite(PWM2, led_high);
+      ledArcades[i].analogWrite(PWM3, led_high);
+      ledArcades[i].analogWrite(PWM4, led_high);  
+    }
   
   delay(10); // delay in loop to slow serial output
-  
-  // Reverse x/y values to match joystick orientation
-  bool b1 = ss.digitalRead(SWITCH1);
-  bool b2 = ss.digitalRead(SWITCH2);
+  //buttonCheck();
 
 #if defined(IRQ_PIN)
   if(!digitalRead(IRQ_PIN)) {
@@ -126,13 +140,13 @@ void loop() {
     return;
   }
 
-//  // Remote wakeup
-//  if ( TinyUSBDevice.suspended() && btn )
-//  {
-//    // Wake up host if we are in suspend mode
-//    // and REMOTE_WAKEUP feature is enabled by host
-//    TinyUSBDevice.remoteWakeup();
-//  }
+  // Remote wakeup
+  if ( TinyUSBDevice.suspended())
+  {
+    // Wake up host if we are in suspend mode
+    // and REMOTE_WAKEUP feature is enabled by host
+    TinyUSBDevice.remoteWakeup();
+  }
 
   if (!usb_hid.ready()) return;
 
@@ -151,13 +165,5 @@ void loop() {
     usb_hid.sendReport(0, &gp, sizeof(gp));
     delay(1000);
   }
-
-
-  // Random touch
-  Serial.println("Random touch");
-  gp.buttons = random(0, 0xffff);
-  usb_hid.sendReport(0, &gp, sizeof(gp));
-  delay(2000);
-
   // */
 }
