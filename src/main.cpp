@@ -4,8 +4,9 @@
 
 #include "Adafruit_seesaw.h"
 #include <seesaw_neopixel.h>
+#include <Adafruit_TinyUSB.h>
 
-#define  I2C_ADDR 0x3A
+#define  DEFAULT_I2C_ADDR 0x3A
 
 #define  SWITCH1  18  // PA01
 #define  SWITCH2  19 // PA02
@@ -16,8 +17,14 @@
 #define  PWM3  0 // PA04
 #define  PWM4  1 // PA05
 
-#define  NUM_BOARDS 4
+#define NUM_BOARDS 4
+int led_low = 0;  //min pwm brightness
+int led_med = 60; 
+int led_high = 220; // max brightness
+
 Adafruit_seesaw ledArcades[NUM_BOARDS] = { Adafruit_seesaw(&Wire), Adafruit_seesaw(&Wire), Adafruit_seesaw(&Wire), Adafruit_seesaw(&Wire) };
+int switches[4] = {SWITCH1, SWITCH2, SWITCH3, SWITCH4};
+int lights[4] = {PWM1, PWM2, PWM3, PWM4};
 
 void setup() {
 
@@ -25,8 +32,12 @@ void setup() {
   Wire.setSDA(0);
   Wire.setSCL(1);
   
-for ( int i = 0; i < NUM_BOARDS; i++ ) {
-      if ( !ledArcades[i].begin( I2C_ADDR + i ) ) {
+  while (!Serial) delay(10);   // wait until serial port is opened
+
+  Serial.println(F("Iterating through all I2c ports"));
+
+  for ( int i = 0; i < NUM_BOARDS; i++ ) {
+      if ( !ledArcades[i].begin( DEFAULT_I2C_ADDR + i ) ) {
       Serial.println(F("LED Arcade not found!"));
       while (1) delay(10);
       } 
@@ -38,58 +49,43 @@ for ( int i = 0; i < NUM_BOARDS; i++ ) {
       ledArcades[i].pinMode(SWITCH2, INPUT_PULLUP);
       ledArcades[i].pinMode(SWITCH3, INPUT_PULLUP);
       ledArcades[i].pinMode(SWITCH4, INPUT_PULLUP);
-      ledArcades[i].analogWrite(PWM1, led_low);
-      ledArcades[i].analogWrite(PWM2, led_low);
-      ledArcades[i].analogWrite(PWM3, led_low);
-      ledArcades[i].analogWrite(PWM4, led_low);  
+      ledArcades[i].analogWrite(PWM1, 127);
+      ledArcades[i].analogWrite(PWM2, 127);
+      ledArcades[i].analogWrite(PWM3, 127);
+      ledArcades[i].analogWrite(PWM4, 127);  
     }
 
+  // uint16_t pid;
+  // uint8_t year, mon, day;
+  
+  // ss.getProdDatecode(&pid, &year, &mon, &day);
+  // Serial.print("seesaw found PID: ");
+  // Serial.print(pid);
+  // Serial.print(" datecode: ");
+  // Serial.print(2000+year); Serial.print("/"); 
+  // Serial.print(mon); Serial.print("/"); 
+  // Serial.println(day);
 
+  // if (pid != 5296) {
+  //   Serial.println(F("Wrong seesaw PID"));
+  //   while (1) delay(10);
+  // }
 
   Serial.println(F("seesaw started OK!"));
-  ss.pinMode(SWITCH1, INPUT_PULLUP);
-  ss.pinMode(SWITCH2, INPUT_PULLUP);
-  ss.pinMode(SWITCH3, INPUT_PULLUP);
-  ss.pinMode(SWITCH4, INPUT_PULLUP);
-  ss.analogWrite(PWM1, 127);
-  ss.analogWrite(PWM2, 127);
-  ss.analogWrite(PWM3, 127);
-  ss.analogWrite(PWM4, 127);
 }
 
 uint8_t incr = 0;
 
 void loop() {
-  if (! ss.digitalRead(SWITCH1)) {
-    Serial.println("Switch 1 pressed");
-    ss.analogWrite(PWM1, incr);
-    incr += 5;
-  } else {
-    ss.analogWrite(PWM1, 0);
-  }
-  
-  if (! ss.digitalRead(SWITCH2)) {
-    Serial.println("Switch 2 pressed");
-    ss.analogWrite(PWM2, incr);
-    incr += 5;
-  } else {
-    ss.analogWrite(PWM2, 0);
-  }
-  
-  if (! ss.digitalRead(SWITCH3)) {
-    Serial.println("Switch 3 pressed");
-    ss.analogWrite(PWM3, incr);
-    incr += 5;
-  } else {
-    ss.analogWrite(PWM3, 0);
-  }
-  
-  if (! ss.digitalRead(SWITCH4)) {
-    Serial.println("Switch 4 pressed");
-    ss.analogWrite(PWM4, incr);
-    incr += 5;
-  } else {
-    ss.analogWrite(PWM4, 0);
+  for ( int i = 0; i < NUM_BOARDS; i++ ) {
+      for ( int j = 0; j< 4; j++) {
+        if (!ledArcades[i].digitalRead(switches[j])) {
+          ledArcades[i].analogWrite(lights[j], led_high);
+          Serial.println("button " + (String)j + " on board " + (String)i + "Pressed");
+        } else {
+          ledArcades[i].analogWrite(lights[j],led_low);
+        }
+      }
   }
   delay(10);
 }
