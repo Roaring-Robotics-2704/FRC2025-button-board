@@ -6,6 +6,8 @@
 #include <seesaw_neopixel.h>
 #include <Adafruit_TinyUSB.h>
 
+#define TOGGLE_HEIGHT_SELECTOR false
+
 #define DEFAULT_I2C_ADDR 0x3A
 
 #define SWITCH1 18 // PA01
@@ -22,18 +24,14 @@ int led_low = 0; // min pwm brightness
 int led_med = 60;
 int led_high = 220; // max brightness
 
-
-
 Adafruit_seesaw ledArcades[NUM_BOARDS] = {Adafruit_seesaw(&Wire), Adafruit_seesaw(&Wire), Adafruit_seesaw(&Wire), Adafruit_seesaw(&Wire)};
 int switches[4] = {SWITCH1, SWITCH2, SWITCH3, SWITCH4};
 int lights[4] = {PWM1, PWM2, PWM3, PWM4};
 
-
 // HID report descriptor using TinyUSB's template
 // Single Report (no ID) descriptor
 uint8_t const desc_hid_report[] = {
-    TUD_HID_REPORT_DESC_GAMEPAD()
-    };
+    TUD_HID_REPORT_DESC_GAMEPAD()};
 
 // USB HID object
 Adafruit_USBD_HID usb_hid;
@@ -43,71 +41,68 @@ Adafruit_USBD_HID usb_hid;
 // - For Gamepad Hat    Bit Mask see  hid_gamepad_hat_t
 hid_gamepad_report_t gp;
 
-
-
-int heightOrder[4] = {0,2,1,3};
+int heightOrder[4] = {0, 2, 1, 3};
 
 bool heightSelector[2][4] = {{true, false, false, false}, {false, false, false, false}};
-bool buttons[8] = {false, false, false, false, false, false, false, false};
+bool buttons[4][4] = {{false, false, false, false}, {false, false, false, false}, {false, false, false, false}, {false, false, false, false}};
 
-void clearHeightSelector() {
-  for (int x=0; x<2; x++) {
-    for (int y=0; y<4; y++)
+void clearHeightSelector()
+{
+  for (int x = 0; x < 2; x++)
+  {
+    for (int y = 0; y < 4; y++)
       heightSelector[x][y] = false;
   };
 }
-void updateHeightSelectorLights() {
-  for (int x=0; x<2; x++) {
-    for (int y=0; y<4; y++) {
-      if (heightSelector[x][heightOrder[y]] == true) {
-              ledArcades[y].analogWrite(lights[x],led_high);
-      } else {
-        ledArcades[y].analogWrite(lights[x],led_low);
+void updateHeightSelectorLights()
+{
+  for (int x = 0; x < 2; x++)
+  {
+    for (int y = 0; y < 4; y++)
+    {
+      if (heightSelector[x][heightOrder[y]] == true)
+      {
+        ledArcades[y].analogWrite(lights[x], led_high);
+      }
+      else
+      {
+        ledArcades[y].analogWrite(lights[x], led_low);
       }
     }
   };
 }
 
-int getHeightSelector() {
+int getHeightSelector()
+{
   int i = 0;
-  for (int x=0; x<2; x++) {
-    for (int y=0; y<4; y++) {
+  for (int x = 0; x < 2; x++)
+  {
+    for (int y = 0; y < 4; y++)
+    {
       i++;
-      if (heightSelector[x][y]) return i;
-        
+      if (heightSelector[x][y])
+        return i;
     }
   };
   return 0;
 }
-int getButtons() {
+int getButtons()
+{
 
-  //int i = 0;
-  //i |= digitalRead(2)<<8;// it will then gamepad button 7
-  //i |= digitalRead(10);    //  button 0
   uint16_t i;
-  i |= (buttons[0] ? HIGH : LOW) << 0;
-  i |= (buttons[0] ? HIGH : LOW) << 1;
-  i |= (buttons[1] ? HIGH : LOW) << 2;
-  i |= (buttons[1] ? HIGH : LOW) << 3;
-  i |= (buttons[2] ? HIGH : LOW) << 4;
-  i |= (buttons[2] ? HIGH : LOW) << 5;
-  i |= (buttons[3] ? HIGH : LOW) << 6;
-  i |= (buttons[3] ? HIGH : LOW) << 7;
-  i |= (buttons[4] ? HIGH : LOW) << 8;
-  i |= (buttons[4] ? HIGH : LOW) << 9;
-  i |= (buttons[5] ? HIGH : LOW) << 10;
-  i |= (buttons[5] ? HIGH : LOW) << 11;
-  i |= (buttons[6] ? HIGH : LOW) << 12;
-  i |= (buttons[6] ? HIGH : LOW) << 13;
-  i |= (buttons[7] ? HIGH : LOW) << 14;
-  i |= (buttons[7] ? HIGH : LOW) << 15;
 
-  // for (int x=0; x<8; x++) {
-  //      i |=  (buttons[x] ? HIGH: LOW) << x;
-  //  };
-  // for (int w=0; w<(32-8); w++) {
-  //   i |= LOW << (w+8);
-  // }
+  i = 0;
+  for (int x = 0; x < 4; x++)
+  {
+    for (int y = 0; y < 4; y++)
+    {
+      if (buttons[x][y])
+      {                            // Swap x and y to fix the order
+        i |= (1 << ((x * 2) + y)); // Adjust bit position accordingly
+      }
+    }
+  }
+
   return i;
 }
 
@@ -116,7 +111,8 @@ void setup()
   Wire.setSDA(0);
   Wire.setSCL(1);
 
-  if (!TinyUSBDevice.isInitialized()) {
+  if (!TinyUSBDevice.isInitialized())
+  {
     TinyUSBDevice.begin(0);
   }
 
@@ -128,12 +124,12 @@ void setup()
   usb_hid.begin();
 
   // If already enumerated, additional class driverr begin() e.g msc, hid, midi won't take effect until re-enumeration
-  if (TinyUSBDevice.mounted()) {
+  if (TinyUSBDevice.mounted())
+  {
     TinyUSBDevice.detach();
     delay(10);
     TinyUSBDevice.attach();
   }
-
 
   for (int i = 0; i < NUM_BOARDS; i++)
   {
@@ -155,8 +151,6 @@ void setup()
     ledArcades[i].analogWrite(PWM3, 127);
     ledArcades[i].analogWrite(PWM4, 127);
   }
-
-
 }
 
 uint8_t incr = 0;
@@ -164,67 +158,69 @@ uint8_t incr = 0;
 void loop()
 {
 
-
-  #ifdef TINYUSB_NEED_POLLING_TASK
+#ifdef TINYUSB_NEED_POLLING_TASK
   // Manual call tud_task since it isn't called by Core's background
   TinyUSBDevice.task();
-  #endif
+#endif
 
   // not enumerated()/mounted() yet: nothing to do
-  if (!TinyUSBDevice.mounted()) {
+  if (!TinyUSBDevice.mounted())
+  {
     return;
   }
 
-//  // Remote wakeup
-//  if ( TinyUSBDevice.suspended() && btn )
-//  {
-//    // Wake up host if we are in suspend mode
-//    // and REMOTE_WAKEUP feature is enabled by host
-//    TinyUSBDevice.remoteWakeup();
-//  }
+  //  // Remote wakeup
+  //  if ( TinyUSBDevice.suspended() && btn )
+  //  {
+  //    // Wake up host if we are in suspend mode
+  //    // and REMOTE_WAKEUP feature is enabled by host
+  //    TinyUSBDevice.remoteWakeup();
+  //  }
 
-  if (!usb_hid.ready()) return;
+  if (!usb_hid.ready())
+    return;
   for (int i = 0; i < NUM_BOARDS; i++)
   {
     for (int j = 0; j < 4; j++)
-    {
-      if (j == 1 || j == 0)
-      {
-        if (!ledArcades[i].digitalRead(switches[j])){
+    { // Iterate over 4 buttons per board
+      if (j == 0 || j == 1)
+      { // Height selectors
+        if (!ledArcades[i].digitalRead(switches[j]))
+        {
           clearHeightSelector();
           heightSelector[j][heightOrder[i]] = true;
         }
       }
       else
-      {
-        int x = i*j;
+      {                                 // Regular buttons
+        int buttonRow = heightOrder[i]; // Map board index to row
+        int buttonCol = j - 2;          // Map button index to column (j = 2, 3 -> col = 0, 1)
         if (!ledArcades[i].digitalRead(switches[j]))
         {
           ledArcades[i].analogWrite(lights[j], led_high);
-          buttons[x] = true;
+          buttons[buttonRow][buttonCol] = true; // Correctly map to 2x4 array
         }
         else
         {
           ledArcades[i].analogWrite(lights[j], led_low);
-          buttons[x] = false;
-
+          buttons[buttonRow][buttonCol] = false; // Correctly map to 2x4 array
         }
       }
     }
   }
+
+  // Update height selector lights after processing all boards
   updateHeightSelectorLights();
+
+  // Update HID report after processing all buttons
   gp.hat = getHeightSelector();
-  // for (int i = 0; i < 32; ++i) {
-  //   Serial.print("Pressing button ");
-  //   Serial.println(i);
-  //   gp.buttons = (1U << i);
-  //   usb_hid.sendReport(0, &gp, sizeof(gp));
-  //   delay(1000);
-  // }
   gp.buttons = getButtons();
   usb_hid.sendReport(0, &gp, sizeof(gp));
+
+  if (!TOGGLE_HEIGHT_SELECTOR) {
+  // Clear height selector for the next loop iteration
+  clearHeightSelector();
+  }
+
   delay(10);
 }
-
-
-
